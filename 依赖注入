@@ -1,0 +1,76 @@
+依赖注入
+
+<?php
+ 
+class A
+{
+    public $b;
+    public $c;
+    public function A()
+    {
+        //TODO
+    }
+    public function Method()
+    {
+        $this->b=new B();
+        $this->c=new C();
+         
+        $this->b->Method();
+        $this->c->Method();
+         
+        //TODO
+    }
+}
+ 
+class B
+{
+    public function B()
+    {
+        //TODO
+    }
+    public function Method()
+    {
+        //TODO
+        echo 'b';
+    }
+}
+ 
+class C
+{
+    public function C()
+    {
+        //TODO
+    }
+    public function Method()
+    {
+        //TODO
+        echo 'c';
+    }
+}
+ 
+$a=new A();
+$a->Method();
+?>
+
+以上例子看到 $a的调用 依赖于 B，C两个类 如果改动B,C两个的业务（这里可能比较抽象 代码量少业务改动不明显 假如改动了 构造器 需要传入参数） 那么就需要改动
+A类（Method函数） B类(构造函数)，C类（构造函数），这样的模式显然是不可取的，按照设计模式思想 必须改动的有 B类，C类（构造函数）A类不需要修改 那么将程序改成以下
+
+class A
+{
+    public $b;
+    public $c;
+    public function A($b,$c)
+    {
+        $this->b=$b;
+        $this->c=$c;
+    }
+    public function Method()
+    {
+        $this->b->Method();
+        $this->c->Method();
+    }
+}
+在调用上 改为
+$a=new A(new B(),new C());
+$a->Method();
+这样 如果B,C改动 只需要改动 B，C必要修改文件 A就解除了对B,C的依赖
