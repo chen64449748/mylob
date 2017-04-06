@@ -1,0 +1,82 @@
+RabbitMQ 实现延迟任务
+
+应用场景：
+  1.定时需要做的任务
+  2.订单支付时间限制
+
+应用1 Redis
+
+  redis list结构作为任务队列 无论是效率上还是开发难度，都是一个不错的选择
+  
+  代码逻辑
+  
+    lpush('task');
+    
+    task = rpop();
+    if (!do(task)) {
+      //lpush('task');
+      rpush('task');
+    }
+  
+  redis的操作都是原子性的，但是可靠性不是很强，如果业务逻辑出错必须手动再次将任务添加回队列
+
+应用2 RabbitMQ
+
+  rabbitmq 几个概念
+  
+  交换机 exchange 
+  路由 route
+  队列 queue
+  
+  route绑定了queue
+  由交换机将数据 转到 路由
+  push数据  exchange->route->queue
+  
+  交换机几种类型
+    Direct Exchange 处理路由交换机 exchange->route->queue
+    Fanout Exchange 不处理路由交换机 exchange->queue
+    
+    Topic Exchange  将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号“#”匹配一个或多个词，符号“*”匹配不多不少一个词
+      例如 exchange -> route(user.product) ->  queue(user.#) , queue(#.user)  会匹配到绑定
+      是否会分布式存在 多个queue还是  多个queue都有存在任务（复制） 待考察 这里没做过实验
+      
+  
+  代码逻辑
+    
+    生产
+    exchange.flag('direct'); //使用简单的处理路由方式
+    queue.bind('user.product')
+    params //参数
+    exchange.send（data, 'user.product', params）;
+    
+    
+    消费
+    queue.consumer(function(){});
+    queue.ack(); // ACK应答 表示接收到数据 队列会删除相应任务   不做应答不删除
+    
+  以上是rabbitmq的队列任务
+ 
+ 
+ 
+ 
+  遇到延迟类型任务
+  
+  redis 提供存储的 list 类型  不提供消息过期功能 需要自行实现（具体实现自己设计， 一种思路存放时间字段 如果没到再push回去 但是不及时 不可靠）
+   
+  rabbitmq 提供了TTL （Time To Live） 消息存在时间
+  需要了解概念 rabbitmq的 死信
+  当消息设置的时间过期 消息会移除队列 提交到另一个绑定死信的队列中
+  如
+    task 正常队列
+    taskdead 死信队列
+    
+    task 设置Dead letter exchange 或者 Dead letter routekey 到taskdead中
+    具体设置方法可以使用后台设置  可以代码设置 各语言自行研究
+    
+    exchange.send(data, 'task', ['expirtion'=> '6000' ]); //一个6秒的任务 6秒未执行会被送到死信队列
+    
+    循环读取死信队列 消费任务 即可做到延迟任务  （相对于redis的延迟效率好 可靠性好）
+  
+  
+  
+    
